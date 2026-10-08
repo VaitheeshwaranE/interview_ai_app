@@ -1,0 +1,585 @@
+// InterviewVerse AI - Complete Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// USER & AUTH
+// =============================================
+
+model User {
+  id              String   @id @default(cuid())
+  firebaseUid     String   @unique
+  email           String   @unique
+  name            String
+  avatar          String?
+  bio             String?
+  college         String?
+  degree          String?
+  graduationYear  Int?
+  targetRole      String?
+  targetCompany   String?
+  phone           String?
+  linkedinUrl     String?
+  githubUrl       String?
+  portfolioUrl    String?
+  resumeUrl       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Gamification
+  xp              Int      @default(0)
+  level           Int      @default(1)
+  coins           Int      @default(100)
+  streak          Int      @default(0)
+  longestStreak   Int      @default(0)
+  lastActiveDate  DateTime?
+  jobReadyScore   Int      @default(0)
+
+  // Preferences
+  theme           String   @default("dark")
+  notifications   Boolean  @default(true)
+  soundEnabled    Boolean  @default(true)
+
+  // Relations
+  profile         UserProfile?
+  journeyProgress JourneyProgress[]
+  sessions        InterviewSession[]
+  challenges      DailyChallenge[]
+  achievements    UserAchievement[]
+  vocabulary      UserVocabulary[]
+  roadmapProgress RoadmapProgress[]
+  analyticsData   Analytics[]
+  mentorChats     MentorChat[]
+  badges          UserBadge[]
+  friendships     Friendship[]   @relation("UserFriendships")
+  friendOf        Friendship[]   @relation("FriendOf")
+  leaderboard     LeaderboardEntry[]
+  speechPractice  SpeechPractice[]
+  storyProgress   StoryProgress[]
+  notifications_  Notification[]
+  resumeAnalysis  ResumeAnalysis[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id                  String  @id @default(cuid())
+  userId              String  @unique
+  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Skill Scores (0-100)
+  grammarScore        Int     @default(50)
+  vocabularyScore     Int     @default(50)
+  confidenceScore     Int     @default(50)
+  pronunciationScore  Int     @default(50)
+  fluencyScore        Int     @default(50)
+  speakingSpeed       Int     @default(50)
+  eyeContactScore     Int     @default(50)
+
+  // HR Readiness
+  hrReadinessScore    Int     @default(50)
+  technicalScore      Int     @default(50)
+  resumeScore         Int     @default(50)
+  behavioralScore     Int     @default(50)
+
+  // Stats
+  totalInterviews     Int     @default(0)
+  totalPracticeMin    Int     @default(0)
+  wordsLearned        Int     @default(0)
+  correctAnswers      Int     @default(0)
+  totalAnswers        Int     @default(0)
+
+  weeklyGoal          Int     @default(5)
+  weeklyCompleted     Int     @default(0)
+
+  currentJourneyStage String  @default("foundation")
+  unlockedStages      String  @default("foundation")
+
+  updatedAt           DateTime @updatedAt
+
+  @@map("user_profiles")
+}
+
+// =============================================
+// JOURNEY PROGRESS
+// =============================================
+
+model JourneyProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  moduleId    String
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+
+  @@unique([userId, moduleId])
+  @@map("journey_progress")
+}
+
+// =============================================
+// INTERVIEW SESSIONS
+// =============================================
+
+model InterviewSession {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type            String
+  difficulty      String   @default("medium")
+  duration        Int
+  avatarId        String   @default("hr-manager")
+  company         String?
+  role            String?
+
+  // Scores
+  overallScore    Int
+  grammarScore    Int
+  vocabularyScore Int
+  confidenceScore Int
+  fluencyScore    Int
+  speakingSpeed   Int
+  fillerWordCount Int      @default(0)
+  pauseCount      Int      @default(0)
+  wordCount       Int      @default(0)
+
+  status          String   @default("completed")
+  feedback        String?  @db.Text
+  improvements    String[] @default([])
+  strengths       String[] @default([])
+
+  questions       InterviewQuestion[]
+  speechAnalysis  SpeechAnalysis[]
+
+  xpEarned        Int      @default(0)
+  coinsEarned     Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  @@map("interview_sessions")
+}
+
+model InterviewQuestion {
+  id          String           @id @default(cuid())
+  sessionId   String
+  session     InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  question    String           @db.Text
+  answer      String?          @db.Text
+  aiAnswer    String?          @db.Text
+  score       Int?
+  feedback    String?          @db.Text
+  category    String?
+  orderIndex  Int
+
+  @@map("interview_questions")
+}
+
+model SpeechAnalysis {
+  id              String           @id @default(cuid())
+  sessionId       String
+  session         InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  transcript      String           @db.Text
+  corrections     Json
+  fillerWords     String[]
+  speakingSpeed   Float
+  clarity         Int
+  confidence      Int
+  sentiment       String?
+
+  timestamp       DateTime         @default(now())
+
+  @@map("speech_analysis")
+}
+
+// =============================================
+// DAILY CHALLENGES
+// =============================================
+
+model DailyChallenge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date        DateTime @default(now())
+  type        String
+  topic       String
+  prompt      String   @db.Text
+  difficulty  String
+
+  completed   Boolean  @default(false)
+  response    String?  @db.Text
+  score       Int?
+  feedback    String?  @db.Text
+
+  xpEarned    Int      @default(0)
+  coinsEarned Int      @default(0)
+  timeTaken   Int?
+
+  @@map("daily_challenges")
+}
+
+// =============================================
+// VOCABULARY
+// =============================================
+
+model VocabularyWord {
+  id              String  @id @default(cuid())
+  word            String  @unique
+  meaning         String  @db.Text
+  pronunciation   String
+  partOfSpeech    String
+  synonyms        String[]
+  antonyms        String[]
+  exampleSentence String  @db.Text
+  interviewUsage  String  @db.Text
+  difficulty      String  @default("medium")
+  category        String
+
+  audioUrl        String?
+  imageUrl        String?
+
+  createdAt       DateTime @default(now())
+  userProgress    UserVocabulary[]
+
+  @@map("vocabulary_words")
+}
+
+model UserVocabulary {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordId      String
+  word        VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  learned         Boolean   @default(false)
+  bookmarked      Boolean   @default(false)
+  mastery         Int       @default(0)
+  reviewCount     Int       @default(0)
+  correctCount    Int       @default(0)
+  nextReviewDate  DateTime?
+  lastReviewed    DateTime?
+
+  @@unique([userId, wordId])
+  @@map("user_vocabulary")
+}
+
+// =============================================
+// CAREER ROADMAPS
+// =============================================
+
+model CareerRoadmap {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  title           String
+  description     String   @db.Text
+  icon            String
+  color           String
+  totalSteps      Int
+  estimatedWeeks  Int
+
+  stages          RoadmapStage[]
+  progress        RoadmapProgress[]
+
+  @@map("career_roadmaps")
+}
+
+model RoadmapStage {
+  id            String        @id @default(cuid())
+  roadmapId     String
+  roadmap       CareerRoadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+
+  title         String
+  description   String        @db.Text
+  orderIndex    Int
+  type          String
+  content       Json?
+  xpReward      Int           @default(50)
+  estimatedMin  Int           @default(30)
+
+  @@map("roadmap_stages")
+}
+
+model RoadmapProgress {
+  id                String        @id @default(cuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roadmapId         String
+  roadmap           CareerRoadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+
+  currentStage      Int           @default(0)
+  completedStages   Int[]         @default([])
+  percentage        Int           @default(0)
+  startedAt         DateTime      @default(now())
+  completedAt       DateTime?
+
+  @@unique([userId, roadmapId])
+  @@map("roadmap_progress")
+}
+
+// =============================================
+// ANALYTICS
+// =============================================
+
+model Analytics {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date            DateTime @default(now())
+  type            String
+
+  practiceMinutes Int      @default(0)
+  xpEarned        Int      @default(0)
+  wordsLearned    Int      @default(0)
+  interviewsDone  Int      @default(0)
+  avgScore        Float?
+  speakingTime    Int      @default(0)
+
+  grammarErrors   Int      @default(0)
+  fillerWords     Int      @default(0)
+  corrections     Json?
+
+  metadata        Json?
+
+  @@map("analytics")
+}
+
+// =============================================
+// AI MENTOR CHAT
+// =============================================
+
+model MentorChat {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role      String
+  content   String   @db.Text
+  category  String?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@map("mentor_chats")
+}
+
+// =============================================
+// ACHIEVEMENTS & BADGES
+// =============================================
+
+model Achievement {
+  id               String            @id @default(cuid())
+  slug             String            @unique
+  title            String
+  description      String
+  icon             String
+  rarity           String            @default("common")
+  xpReward         Int               @default(50)
+  coinsReward      Int               @default(25)
+  condition        Json
+
+  userAchievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  earnedAt      DateTime    @default(now())
+  notified      Boolean     @default(false)
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  name        String
+  description String
+  imageUrl    String
+  category    String
+  userBadges  UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  earnedAt  DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+// =============================================
+// SOCIAL FEATURES
+// =============================================
+
+model Friendship {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("UserFriendships", fields: [userId], references: [id], onDelete: Cascade)
+  friendId    String
+  friend      User     @relation("FriendOf", fields: [friendId], references: [id], onDelete: Cascade)
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, friendId])
+  @@map("friendships")
+}
+
+model LeaderboardEntry {
+  id      String   @id @default(cuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  period  String
+  rank    Int
+  xp      Int
+  college String?
+  weekOf  DateTime?
+
+  @@unique([userId, period, weekOf])
+  @@map("leaderboard_entries")
+}
+
+// =============================================
+// SPEECH PRACTICE
+// =============================================
+
+model SpeechPractice {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  word            String
+  userAudioUrl    String?
+  accuracy        Int
+  stressScore     Int
+  intonationScore Int
+  feedback        String?  @db.Text
+
+  practiceDate    DateTime @default(now())
+
+  @@map("speech_practice")
+}
+
+// =============================================
+// AI STORY BUILDER
+// =============================================
+
+model Story {
+  id          String          @id @default(cuid())
+  slug        String          @unique
+  title       String
+  description String          @db.Text
+  scenario    String
+  coverImage  String?
+  difficulty  String
+  category    String
+
+  scenes      StoryScene[]
+  progress    StoryProgress[]
+
+  @@map("stories")
+}
+
+model StoryScene {
+  id          String   @id @default(cuid())
+  storyId     String
+  story       Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  sceneIndex  Int
+  narration   String   @db.Text
+  avatarLine  String?  @db.Text
+  choices     Json
+  isEnding    Boolean  @default(false)
+  endingType  String?
+
+  @@map("story_scenes")
+}
+
+model StoryProgress {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storyId       String
+  story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  currentScene  Int      @default(0)
+  choices       Json     @default("[]")
+  completed     Boolean  @default(false)
+  outcome       String?
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  @@unique([userId, storyId])
+  @@map("story_progress")
+}
+
+// =============================================
+// NOTIFICATIONS
+// =============================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String
+  title     String
+  message   String
+  icon      String?
+  read      Boolean  @default(false)
+  actionUrl String?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+// =============================================
+// RESUME ANALYSIS
+// =============================================
+
+model ResumeAnalysis {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fileName           String
+  fileUrl            String?
+  skills             String[]
+  projects           Json?
+  experience         Json?
+  achievements       String[]
+  education          Json?
+  overallScore       Int?
+  suggestions        String[]
+  generatedQuestions Json?
+
+  analyzedAt         DateTime @default(now())
+
+  @@map("resume_analysis")
+}
